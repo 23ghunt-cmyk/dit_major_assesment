@@ -8,11 +8,29 @@ GREEN = (34, 139, 34)
 RED = (200, 0, 0)
 BLUE = (0, 0, 200)
 YELLOW = (255, 255, 0)
+BLACK = (0, 0, 0)
 
 WAYPOINTS = [(50, 50), (700, 50), (700, 500), (50, 500), (50, 300), (800, 300)]
 
-class Enemy(pygame.sprite.Sprite):
+class Base:
     def __init__(self):
+        self.health = 100
+        self.max_health = 100
+        self.pos = WAYPOINTS[-1]
+
+    def draw(self, screen):
+        bar_width = 200
+        bar_height = 20
+        fill = (self.health / self.max_health) * bar_width
+        outline_rect = pygame.Rect(WIDTH // 2 - bar_width // 2, 10, bar_width, bar_height)
+        fill_rect = pygame.Rect(WIDTH // 2 - bar_width // 2, 10, fill, bar_height)
+        
+        pygame.draw.rect(screen, RED, outline_rect)
+        pygame.draw.rect(screen, GREEN, fill_rect)
+        pygame.draw.rect(screen, WHITE, outline_rect, 2)
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, base):
         super().__init__()
         self.image = pygame.Surface((30, 30))
         self.image.fill(RED)
@@ -20,7 +38,8 @@ class Enemy(pygame.sprite.Sprite):
         self.pos = pygame.Vector2(WAYPOINTS[0])
         self.target_waypoint = 1
         self.speed = 2
-        self.health = 10
+        self.health = 15
+        self.base = base
 
     def update(self):
         if self.target_waypoint < len(WAYPOINTS):
@@ -35,6 +54,7 @@ class Enemy(pygame.sprite.Sprite):
             if self.pos.distance_to(target) < 5:
                 self.target_waypoint += 1
         else:
+            self.base.health -= 10
             self.kill()
 
 class Tower(pygame.sprite.Sprite):
@@ -43,9 +63,9 @@ class Tower(pygame.sprite.Sprite):
         self.image = pygame.Surface((40, 40))
         self.image.fill(BLUE)
         self.rect = self.image.get_rect(center=(x, y))
-        self.range = 150
+        self.range = 130
         self.cooldown = 0
-        self.fire_rate = 30
+        self.fire_rate = 60
 
     def update(self, enemies, projectiles):
         if self.cooldown > 0:
@@ -86,40 +106,53 @@ class Projectile(pygame.sprite.Sprite):
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Tower Defense - Base Health")
     clock = pygame.time.Clock()
+    font = pygame.font.SysFont("Arial", 48)
 
+    base = Base()
     enemies = pygame.sprite.Group()
     towers = pygame.sprite.Group()
     projectiles = pygame.sprite.Group()
 
     spawn_timer = 0
     running = True
+    game_over = False
     
     while running:
         screen.fill(GREEN)
         
-        if len(WAYPOINTS) > 1:
-            pygame.draw.lines(screen, WHITE, False, WAYPOINTS, 40)
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
                 mx, my = pygame.mouse.get_pos()
                 towers.add(Tower(mx, my))
 
-        spawn_timer += 1
-        if spawn_timer >= 60:
-            enemies.add(Enemy())
-            spawn_timer = 0
+        if not game_over:
+            spawn_timer += 1
+            if spawn_timer >= 60:
+                enemies.add(Enemy(base))
+                spawn_timer = 0
 
-        enemies.update()
-        towers.update(enemies, projectiles)
-        projectiles.update()
+            enemies.update()
+            towers.update(enemies, projectiles)
+            projectiles.update()
+
+            if base.health <= 0:
+                game_over = True
+
+        if len(WAYPOINTS) > 1:
+            pygame.draw.lines(screen, WHITE, False, WAYPOINTS, 40)
 
         towers.draw(screen)
         enemies.draw(screen)
         projectiles.draw(screen)
+        base.draw(screen)
+
+        if game_over:
+            text = font.render("GAME OVER", True, BLACK)
+            screen.blit(text, (WIDTH // 2 - 100, HEIGHT // 2))
 
         pygame.display.flip()
         clock.tick(FPS)
