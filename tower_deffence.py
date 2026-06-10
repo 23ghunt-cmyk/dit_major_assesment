@@ -111,6 +111,7 @@ def main():
     pygame.display.set_caption("Tower Defense - Base Health")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("Arial", 48)
+    small_font = pygame.font.SysFont("Arial", 24)
 
     base = Base()
     enemies = pygame.sprite.Group()
@@ -120,6 +121,7 @@ def main():
     spawn_timer = 0
     running = True
     game_over = False
+    waiting_to_start = True
     
     while running:
         screen.fill(GREEN)
@@ -127,11 +129,15 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
-                mx, my = pygame.mouse.get_pos()
-                towers.add(Tower(mx, my))
 
-        if not game_over:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if waiting_to_start:
+                    waiting_to_start = False
+                elif not game_over:
+                    mx, my = pygame.mouse.get_pos()
+                    towers.add(Tower(mx, my))
+
+        if not game_over and not waiting_to_start:
             spawn_timer += 1
             if spawn_timer >= 60:
                 enemies.add(Enemy(base))
@@ -151,6 +157,17 @@ def main():
         enemies.draw(screen)
         projectiles.draw(screen)
         base.draw(screen)
+
+        if waiting_to_start:
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 160)) 
+            screen.blit(overlay, (0, 0))
+            
+            title_text = font.render("TOWER DEFENSE", True, WHITE)
+            prompt_text = small_font.render("Click Anywhere to Start", True, WHITE)
+            
+            screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, HEIGHT // 2 - 50))
+            screen.blit(prompt_text, (WIDTH // 2 - prompt_text.get_width() // 2, HEIGHT // 2 + 20))
 
         if game_over:
             text = font.render("GAME OVER", True, BLACK)
