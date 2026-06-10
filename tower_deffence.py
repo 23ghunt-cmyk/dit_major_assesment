@@ -163,7 +163,7 @@ def main():
             overlay.fill((0, 0, 0, 160)) 
             screen.blit(overlay, (0, 0))
             
-            title_text = font.render("OVER CLOCKED TOWER DEFENSE", True, WHITE)
+            title_text = font.render("OVERCLOCKED TOWER DEFENSE", True, WHITE)
             prompt_text = small_font.render("Click Anywhere to Start", True, WHITE)
             
             screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, HEIGHT // 2 - 50))
