@@ -12,6 +12,44 @@ BLACK = (0, 0, 0)
 
 WAYPOINTS = [(50, 50), (700, 50), (700, 500), (50, 500), (50, 300), (800, 300)]
 
+ENEMY_TYPES = {
+    "basic": {
+        "health": 15,
+        "speed": 2,
+        "color": RED,
+        "size": (30, 30)
+    },
+    "fast": {
+        "health": 8,
+        "speed": 4,
+        "color": (255, 140, 0),
+        "size": (20, 20)
+    },
+    "tank": {
+        "health": 45,
+        "speed": 1,
+        "color": (128, 0, 128),
+        "size": (40, 40)
+    }
+}
+
+TOWER_TYPES = {
+    "basic": {
+        "range": 130,
+        "fire_rate": 60,
+        "damage": 5,
+        "color": BLUE,
+        "size": (40, 40)
+    },
+    "sniper": {
+        "range": 280,
+        "fire_rate": 120,
+        "damage": 20,
+        "color": BLACK,
+        "size": (30, 30)
+    }
+}
+
 class Base:
     def __init__(self):
         self.health = 100
@@ -32,15 +70,17 @@ class Base:
         pygame.draw.rect(screen, WHITE, outline_rect, 2)
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, base):
+    def __init__(self, base, enemy_type="basic"):
         super().__init__()
-        self.image = pygame.Surface((30, 30))
-        self.image.fill(RED)
+        data = ENEMY_TYPES.get(enemy_type, ENEMY_TYPES["basic"])
+        
+        self.image = pygame.Surface(data["size"])
+        self.image.fill(data["color"])
         self.rect = self.image.get_rect(center=WAYPOINTS[0])
         self.pos = pygame.Vector2(WAYPOINTS[0])
         self.target_waypoint = 1
-        self.speed = 2
-        self.health = 15
+        self.speed = data["speed"]
+        self.health = data["health"]
         self.base = base
 
     def update(self):
@@ -60,14 +100,17 @@ class Enemy(pygame.sprite.Sprite):
             self.kill()
 
 class Tower(pygame.sprite.Sprite):
-    def __init__(self, x, y):
+    def __init__(self, x, y, tower_type="basic"):
         super().__init__()
-        self.image = pygame.Surface((40, 40))
-        self.image.fill(BLUE)
+        data = TOWER_TYPES.get(tower_type, TOWER_TYPES["basic"])
+
+        self.image = pygame.Surface(data["size"])
+        self.image.fill(data["color"])
         self.rect = self.image.get_rect(center=(x, y))
-        self.range = 130
+        self.range = data["range"]
+        self.damage = data["damage"]
+        self.fire_rate = data["fire_rate"]
         self.cooldown = 0
-        self.fire_rate = 60
 
     def update(self, enemies, projectiles):
         if self.cooldown > 0:
@@ -81,7 +124,7 @@ class Tower(pygame.sprite.Sprite):
                 break
 
 class Projectile(pygame.sprite.Sprite):
-    def __init__(self, start_pos, target):
+    def __init__(self, start_pos, target, damage=5):
         super().__init__()
         self.image = pygame.Surface((10, 10))
         self.image.fill(YELLOW)
@@ -89,6 +132,7 @@ class Projectile(pygame.sprite.Sprite):
         self.pos = pygame.Vector2(start_pos)
         self.target = target
         self.speed = 7
+        self.damage = damage
 
     def update(self):
         if not self.target.alive():
