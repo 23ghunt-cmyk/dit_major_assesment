@@ -157,6 +157,13 @@ def main():
     font = pygame.font.SysFont("Arial", 48)
     small_font = pygame.font.SysFont("Arial", 24)
 
+    background_file = "background.png"
+    try:
+        background_image = pygame.image.load(background_file).convert()
+        background_image = pygame.transform.scale(background_image, (WIDTH, HEIGHT))
+    except (pygame.error, FileNotFoundError):
+        background_image = None
+
     base = Base()
     enemies = pygame.sprite.Group()
     towers = pygame.sprite.Group()
@@ -168,7 +175,10 @@ def main():
     waiting_to_start = True
     
     while running:
-        screen.fill(GREEN)
+        if background_image:
+            screen.blit(background_image, (0, 0))
+        else:
+            screen.fill(GREEN)
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
