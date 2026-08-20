@@ -4,6 +4,7 @@ import random
 WIDTH = 800
 HEIGHT = 600
 FPS = 60
+MAX_TOWERS = 20
 WHITE = (255, 255, 255)
 GREEN = (34, 139, 34)
 RED = (200, 0, 0)
@@ -45,14 +46,16 @@ TOWER_TYPES = {
         "fire_rate": 60,
         "damage": 5,
         "color": BLUE,
-        "size": (40, 40)
+        "size": (40, 40),
+        "cost": 250
     },
     "sniper": {
         "range": 280,
         "fire_rate": 120,
         "damage": 20,
         "color": BLACK,
-        "size": (30, 30)
+        "size": (30, 30),
+        "cost": 650
     }
 }
 
@@ -70,7 +73,7 @@ class Base:
         fill = (max(0, self.health) / self.max_health) * bar_width
         outline_rect = pygame.Rect(WIDTH // 2 - bar_width // 2, 10, bar_width, bar_height)
         fill_rect = pygame.Rect(WIDTH // 2 - bar_width // 2, 10, fill, bar_height)
-        
+
         pygame.draw.rect(screen, RED, outline_rect)
         pygame.draw.rect(screen, GREEN, fill_rect)
         pygame.draw.rect(screen, WHITE, outline_rect, 2)
@@ -79,7 +82,7 @@ class Enemy(pygame.sprite.Sprite):
     def __init__(self, base, enemy_type="basic"):
         super().__init__()
         data = ENEMY_TYPES.get(enemy_type, ENEMY_TYPES["basic"])
-        
+
         self.image = pygame.Surface(data["size"])
         self.image.fill(data["color"])
         self.rect = self.image.get_rect(center=WAYPOINTS[0])
@@ -96,7 +99,7 @@ class Enemy(pygame.sprite.Sprite):
             direction = (target - self.pos)
             if direction.length() > 0:
                 direction = direction.normalize()
-            
+
             self.pos += direction * self.speed
             self.rect.center = self.pos
 
@@ -122,7 +125,7 @@ class Tower(pygame.sprite.Sprite):
     def update(self, enemies, projectiles):
         if self.cooldown > 0:
             self.cooldown -= 1
-        
+
         for enemy in enemies:
             dist = pygame.Vector2(self.rect.center).distance_to(enemy.pos)
             if dist <= self.range and self.cooldown == 0:
@@ -168,20 +171,21 @@ class TowerSelector:
         self.font = font
         self.tower_types = list(TOWER_TYPES.keys())
         self.selected_type = "basic"
+        self.hovered_type = None
 
         self.panel_rect = pygame.Rect(WIDTH // 2 - 160, HEIGHT - 60, 320, 50)
         self.button_rects = {}
-        
+
         btn_width = 140
         btn_height = 36
         spacing = 10
         start_x = self.panel_rect.x + spacing
         y = self.panel_rect.y + 7
-        
+
         for i, tower_key in enumerate(self.tower_types):
             rect = pygame.Rect(start_x + i * (btn_width + spacing), y, btn_width, btn_height)
             self.button_rects[tower_key] = rect
-    
+
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.panel_rect.collidepoint(event.pos):
@@ -209,7 +213,7 @@ class TowerSelector:
             pygame.draw.rect(screen, color, rect)
             text_surf = self.font.render(tower_key.capitalize(), True, text_color)
             screen.blit(text_surf, text_surf.get_rect(center=rect.center))
-    
+
         if self.hovered_type:
             self.draw_tooltip(screen, self.hovered_type)
 
@@ -268,7 +272,7 @@ def main():
     except (pygame.error, FileNotFoundError):
         background_image = None
 
-    scrap = 0
+    scrap = 400
     base = Base()
     enemies = pygame.sprite.Group()
     towers = pygame.sprite.Group()
@@ -278,7 +282,7 @@ def main():
     running = True
     game_over = False
     waiting_to_start = True
-    
+
     while running:
         if background_image:
             screen.blit(background_image, (0, 0))
@@ -287,7 +291,7 @@ def main():
 
         if len(WAYPOINTS) > 1:
             pygame.draw.lines(screen, WHITE, False, WAYPOINTS, 40)
-        
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -296,10 +300,10 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if waiting_to_start:
                     waiting_to_start = False
-                elif not game_over:
-                    mx, my = pygame.mouse.get_pos()
-                    towers.add(Tower(mx, my))
-                    towers.add(Tower(mx, my, tower_type=selector.selected_type))
+                elif not game_over and not menu_clicked:
+                    if len(towers) < MAX_TOWERS:
+                        mx, my = pygame.mouse.get_pos()
+                        towers.add(Tower(mx, my, tower_type=selector.selected_type))
 
         if not game_over and not waiting_to_start:
             spawn_timer += 1
@@ -310,7 +314,7 @@ def main():
 
             enemies.update()
             towers.update(enemies, projectiles)
-            
+
             for proj in list(projectiles.sprites()):
                 earned_scrap = proj.update()
                 if earned_scrap:
@@ -327,17 +331,17 @@ def main():
         base.draw(screen)
         selector.draw(screen)
 
-        scrap_text = small_font.render(f"Scrap: {scrap}", True, WHITE)
+        scrap_text = small_font.render(f"Scrap: {scrap} | Towers: {len(towers)}/{MAX_TOWERS}", True, BLACK)
         screen.blit(scrap_text, (20, 10))
 
         if waiting_to_start:
             overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 160)) 
             screen.blit(overlay, (0, 0))
-            
+
             title_text = font.render("OVERCLOCKED TOWER DEFENSE", True, WHITE)
             prompt_text = small_font.render("Click Anywhere to Start", True, WHITE)
-            
+
             screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, HEIGHT // 2 - 50))
             screen.blit(prompt_text, (WIDTH // 2 - prompt_text.get_width() // 2, HEIGHT // 2 + 20))
 
@@ -347,7 +351,5 @@ def main():
 
         pygame.display.flip()
         clock.tick(FPS)
-
     pygame.quit()
-
 main()
