@@ -217,21 +217,6 @@ class TowerSelector:
         if self.hovered_type:
             self.draw_tooltip(screen, self.hovered_type)
 
-    def draw(self, screen):
-        pygame.draw.rect(screen, GREY, self.panel_rect)
-        for tower_key, rect in self.button_rects.items():
-            is_selected = (tower_key == self.selected_type)
-
-            color = WHITE if is_selected else BLACK
-            text_color = BLACK if is_selected else WHITE
-
-            pygame.draw.rect(screen, color, rect)
-            text_surf = self.font.render(tower_key.capitalize(), True, text_color)
-            screen.blit(text_surf, text_surf.get_rect(center=rect.center))
-
-        if self.hovered_type:
-            self.draw_tooltip(screen, self.hovered_type)
-
     def draw_tooltip(self, screen, tower_type):
         data = TOWER_TYPES[tower_type]
         lines = [
@@ -255,6 +240,60 @@ class TowerSelector:
         for i, line in enumerate(lines):
             text_surf = self.font.render(line, True, WHITE)
             screen.blit(text_surf, (box_x + padding, box_y + padding + (i * line_height)))
+
+def can_place_tower(x, y, tower_type, base, towers):
+    data = TOWER_TYPES.get(tower_type, TOWER_TYPES["basic"])
+    tower_rect = pygame.Rect(0, 0, data["size"][0], data["size"][1])
+    tower_rect.center = (x, y)
+
+    if tower_rect.colliderect(base.rect):
+        return False
+
+    for existing_tower in towers:
+        if tower_rect.colliderect(existing_tower.rect):
+            return False
+
+    spawn_rect = pygame.Rect(0, 0, WAYPOINTS[0][0] + 20, WAYPOINTS[0][1] + 20)
+    if tower_rect.colliderect(spawn_rect):
+        return False
+
+    path_radius = 20
+    for i in range(len(WAYPOINTS) - 1):
+        p1 = WAYPOINTS[i]
+        p2 = WAYPOINTS[i + 1]
+        
+        min_x = min(p1[0], p2[0]) - path_radius
+        max_x = max(p1[0], p2[0]) + path_radius
+        min_y = min(p1[1], p2[1]) - path_radius
+        max_y = max(p1[1], p2[1]) + path_radius
+        
+        segment_rect = pygame.Rect(min_x, min_y, max_x - min_x, max_y - min_y)
+        if tower_rect.colliderect(segment_rect):
+            return False
+    return True
+
+def draw_placement_ghost(screen, mouse_pos, tower_type, base, towers):
+    if mouse_pos[1] >= HEIGHT - 60:
+        return
+
+    data = TOWER_TYPES.get(tower_type, TOWER_TYPES["basic"])
+    width, height = data["size"]
+    
+    valid_placement = (len(towers) < MAX_TOWERS and can_place_tower(mouse_pos[0], mouse_pos[1], tower_type, base, towers))
+    
+    ghost_color = (0, 255, 0, 128) if valid_placement else (255, 0, 0, 128)
+    
+    ghost_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+    ghost_surf.fill(ghost_color)
+    ghost_rect = ghost_surf.get_rect(center=mouse_pos)
+    
+    range_color = (0, 255, 0, 40) if valid_placement else (255, 0, 0, 40)
+    range_surf = pygame.Surface((data["range"] * 2, data["range"] * 2), pygame.SRCALPHA)
+    pygame.draw.circle(range_surf, range_color, (data["range"], data["range"]), data["range"])
+    range_rect = range_surf.get_rect(center=mouse_pos)
+    
+    screen.blit(range_surf, range_rect)
+    screen.blit(ghost_surf, ghost_rect)
 
 def main():
     pygame.init()
@@ -303,7 +342,8 @@ def main():
                 elif not game_over and not menu_clicked:
                     if len(towers) < MAX_TOWERS:
                         mx, my = pygame.mouse.get_pos()
-                        towers.add(Tower(mx, my, tower_type=selector.selected_type))
+                        if can_place_tower(mx, my, selector.selected_type, base, towers):
+                            towers.add(Tower(mx, my, tower_type=selector.selected_type))
 
         if not game_over and not waiting_to_start:
             spawn_timer += 1
@@ -330,7 +370,10 @@ def main():
         projectiles.draw(screen)
         base.draw(screen)
         selector.draw(screen)
+        if not waiting_to_start and not game_over:
+            draw_placement_ghost(screen, pygame.mouse.get_pos(), selector.selected_type, base, towers)
 
+        selector.draw(screen)
         scrap_text = small_font.render(f"Scrap: {scrap} | Towers: {len(towers)}/{MAX_TOWERS}", True, BLACK)
         screen.blit(scrap_text, (20, 10))
 
