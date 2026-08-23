@@ -120,6 +120,7 @@ class Tower(pygame.sprite.Sprite):
         self.range = data["range"]
         self.damage = data["damage"]
         self.fire_rate = data["fire_rate"]
+        self.cost = data["cost"]
         self.cooldown = 0
 
     def update(self, enemies, projectiles):
@@ -221,13 +222,14 @@ class TowerSelector:
         data = TOWER_TYPES[tower_type]
         lines = [
             f"Type: {tower_type.capitalize()}",
+            f"Cost: {data['cost']}",
             f"Damage: {data['damage']}",
             f"Range: {data['range']}",
             f"Fire Rate: {60 / data['fire_rate']:.1f}/sec"
         ]
         padding = 8
         line_height = self.font.get_linesize()
-        box_width = 150
+        box_width = 180
         box_height = (len(lines) * line_height) + (padding * 2)
 
         mx, my = pygame.mouse.get_pos()
@@ -241,8 +243,11 @@ class TowerSelector:
             text_surf = self.font.render(line, True, WHITE)
             screen.blit(text_surf, (box_x + padding, box_y + padding + (i * line_height)))
 
-def can_place_tower(x, y, tower_type, base, towers):
+def can_place_tower(x, y, tower_type, base, towers, scrap):
     data = TOWER_TYPES.get(tower_type, TOWER_TYPES["basic"])
+    if scrap < data["cost"]:
+        return False
+
     tower_rect = pygame.Rect(0, 0, data["size"][0], data["size"][1])
     tower_rect.center = (x, y)
 
@@ -272,14 +277,14 @@ def can_place_tower(x, y, tower_type, base, towers):
             return False
     return True
 
-def draw_placement_ghost(screen, mouse_pos, tower_type, base, towers):
+def draw_placement_ghost(screen, mouse_pos, tower_type, base, towers, scrap):
     if mouse_pos[1] >= HEIGHT - 60:
         return
 
     data = TOWER_TYPES.get(tower_type, TOWER_TYPES["basic"])
     width, height = data["size"]
     
-    valid_placement = (len(towers) < MAX_TOWERS and can_place_tower(mouse_pos[0], mouse_pos[1], tower_type, base, towers))
+    valid_placement = (len(towers) < MAX_TOWERS and can_place_tower(mouse_pos[0], mouse_pos[1], tower_type, base, towers, scrap))
     
     ghost_color = (0, 255, 0, 128) if valid_placement else (255, 0, 0, 128)
     
@@ -340,10 +345,20 @@ def main():
                 if waiting_to_start:
                     waiting_to_start = False
                 elif not game_over and not menu_clicked:
-                    if len(towers) < MAX_TOWERS:
                         mx, my = pygame.mouse.get_pos()
-                        if can_place_tower(mx, my, selector.selected_type, base, towers):
-                            towers.add(Tower(mx, my, tower_type=selector.selected_type))
+
+                        if event.button == 1:
+                            if len(towers) < MAX_TOWERS:
+                                if can_place_tower(mx, my, selector.selected_type, base, towers, scrap):
+                                    towers.add(Tower(mx, my, tower_type=selector.selected_type))
+                                    scrap -= TOWER_TYPES[selector.selected_type]["cost"]
+
+                        elif event.button == 3:
+                            for tower in list(towers):
+                                if tower.rect.collidepoint((mx, my)):
+                                    scrap += int(tower.cost * 0.75)
+                                    tower.kill()
+                                    break
 
         if not game_over and not waiting_to_start:
             spawn_timer += 1
@@ -371,7 +386,7 @@ def main():
         base.draw(screen)
         selector.draw(screen)
         if not waiting_to_start and not game_over:
-            draw_placement_ghost(screen, pygame.mouse.get_pos(), selector.selected_type, base, towers)
+            draw_placement_ghost(screen, pygame.mouse.get_pos(), selector.selected_type, base, towers, scrap)
 
         selector.draw(screen)
         scrap_text = small_font.render(f"Scrap: {scrap} | Towers: {len(towers)}/{MAX_TOWERS}", True, BLACK)
