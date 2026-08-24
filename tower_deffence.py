@@ -193,7 +193,7 @@ class TowerSelector:
                 for tower_key, rect in self.button_rects.items():
                     if rect.collidepoint(event.pos):
                         self.selected_type = tower_key
-                return True
+                        return True
         return False
 
     def update_hover(self, mouse_pos):
@@ -323,9 +323,17 @@ def main():
     projectiles = pygame.sprite.Group()
 
     spawn_timer = 0
+    wave = 1
+    enemies_left_to_spawn = 5
+    wave_in_progress = True
+    wave_delay_timer = 0
     running = True
     game_over = False
     waiting_to_start = True
+
+    settings_hitbox = pygame.Rect(WIDTH - 50, 0, 50, 50)
+    settings_menu_rect = pygame.Rect(WIDTH // 2 - 200, HEIGHT // 2 - 150, 400, 300)
+    settings_open = False
 
     while running:
         if background_image:
@@ -339,33 +347,56 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            menu_clicked = selector.handle_event(event)
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if settings_hitbox.collidepoint(event.pos):
+                    settings_open = True
+                    continue
+                elif settings_open:
+                    if not settings_menu_rect.collidepoint(event.pos):
+                        settings_open = False
+                    continue
+
+            if not settings_open:
+                menu_clicked = selector.handle_event(event)
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if waiting_to_start:
                     waiting_to_start = False
                 elif not game_over and not menu_clicked:
-                        mx, my = pygame.mouse.get_pos()
+                    mx, my = pygame.mouse.get_pos()
 
-                        if event.button == 1:
-                            if len(towers) < MAX_TOWERS:
-                                if can_place_tower(mx, my, selector.selected_type, base, towers, scrap):
-                                    towers.add(Tower(mx, my, tower_type=selector.selected_type))
-                                    scrap -= TOWER_TYPES[selector.selected_type]["cost"]
+                    if event.button == 1:
+                        if len(towers) < MAX_TOWERS:
+                            if can_place_tower(mx, my, selector.selected_type, base, towers, scrap):
+                                towers.add(Tower(mx, my, tower_type=selector.selected_type))
+                                scrap -= TOWER_TYPES[selector.selected_type]["cost"]
 
-                        elif event.button == 3:
-                            for tower in list(towers):
-                                if tower.rect.collidepoint((mx, my)):
-                                    scrap += int(tower.cost * 0.75)
-                                    tower.kill()
-                                    break
+                    elif event.button == 3:
+                        for tower in list(towers):
+                            if tower.rect.collidepoint((mx, my)):
+                                scrap += int(tower.cost * 0.75)
+                                tower.kill()
+                                break
 
         if not game_over and not waiting_to_start:
-            spawn_timer += 1
-            if spawn_timer >= 60:
-                chosen_type = random.choice(list(ENEMY_TYPES.keys()))
-                enemies.add(Enemy(base, enemy_type=chosen_type))
-                spawn_timer = 0
+            if wave_in_progress:
+                if enemies_left_to_spawn > 0:
+                    spawn_timer += 1
+                    if spawn_timer >= 60:
+                        chosen_type = random.choice(list(ENEMY_TYPES.keys()))
+                        enemies.add(Enemy(base, enemy_type=chosen_type))
+                        enemies_left_to_spawn -= 1
+                        spawn_timer = 0
+                elif len(enemies) == 0:
+                    wave_in_progress = False
+                    wave_delay_timer = 180
+            else:
+                wave_delay_timer -= 1
+                if wave_delay_timer <= 0:
+                    wave += 1
+                    enemies_left_to_spawn = 5 + (wave * 2)
+                    wave_in_progress = True
 
             enemies.update()
             towers.update(enemies, projectiles)
@@ -389,7 +420,7 @@ def main():
             draw_placement_ghost(screen, pygame.mouse.get_pos(), selector.selected_type, base, towers, scrap)
 
         selector.draw(screen)
-        scrap_text = small_font.render(f"Scrap: {scrap} | Towers: {len(towers)}/{MAX_TOWERS}", True, BLACK)
+        scrap_text = small_font.render(f"Scrap: {scrap} | Towers: {len(towers)}/{MAX_TOWERS} | Wave: {wave}", True, BLACK)
         screen.blit(scrap_text, (20, 10))
 
         if waiting_to_start:
@@ -406,6 +437,9 @@ def main():
         if game_over:
             text = font.render("GAME OVER", True, BLACK)
             screen.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT // 2))
+
+        if settings_open:
+            pygame.draw.rect(screen, BLACK, settings_menu_rect)
 
         pygame.display.flip()
         clock.tick(FPS)
