@@ -68,7 +68,7 @@ class Base:
         self.rect = pygame.Rect(self.pos[0] - 60, self.pos[1] - 30, 60, 60)
 
     def draw(self, screen):
-        pygame.draw.rect(screen, WHITE, self.rect)
+        pygame.draw.rect(screen, LIGHT_GRAY, self.rect)
         bar_width = 200
         bar_height = 20
         fill = (max(0, self.health) / self.max_health) * bar_width
