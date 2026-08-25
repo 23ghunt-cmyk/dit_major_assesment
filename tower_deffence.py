@@ -13,6 +13,7 @@ YELLOW = (255, 255, 0)
 BLACK = (0, 0, 0)
 GREY = (50, 50, 50)
 LIGHT_GRAY = (100, 100, 100)
+BROWN = (139, 69, 19)
 
 WAYPOINTS = [(50, 50), (700, 50), (700, 500), (50, 500), (50, 300), (800, 300)]
 
@@ -330,10 +331,16 @@ def main():
     running = True
     game_over = False
     waiting_to_start = True
+    colorblind_mode = False
 
     settings_hitbox = pygame.Rect(WIDTH - 50, 0, 50, 50)
     settings_menu_rect = pygame.Rect(WIDTH // 2 - 200, HEIGHT // 2 - 150, 400, 300)
     settings_open = False
+    colorblind_btn_rect = pygame.Rect(WIDTH // 2 - 120, HEIGHT // 2 - 20, 240, 40)
+
+    filter_overlay = pygame.Surface((WIDTH, HEIGHT))
+    filter_overlay.fill((255, 255, 0))
+    filter_overlay.set_alpha(40)
 
     while running:
         if background_image:
@@ -342,7 +349,7 @@ def main():
             screen.fill(GREEN)
 
         if len(WAYPOINTS) > 1:
-            pygame.draw.lines(screen, WHITE, False, WAYPOINTS, 40)
+            pygame.draw.lines(screen, BROWN, False, WAYPOINTS, 40)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -353,7 +360,9 @@ def main():
                     settings_open = True
                     continue
                 elif settings_open:
-                    if not settings_menu_rect.collidepoint(event.pos):
+                    if colorblind_btn_rect.collidepoint(event.pos):
+                        colorblind_mode = not colorblind_mode
+                    elif not settings_menu_rect.collidepoint(event.pos):
                         settings_open = False
                     continue
 
@@ -440,6 +449,13 @@ def main():
 
         if settings_open:
             pygame.draw.rect(screen, BLACK, settings_menu_rect)
+            btn_color = GREEN if colorblind_mode else GREY
+            pygame.draw.rect(screen, btn_color, colorblind_btn_rect)
+            cb_status = "ON" if colorblind_mode else "OFF"
+            cb_text = small_font.render(f"Colorblind Filter: {cb_status}", True, WHITE)
+            screen.blit(cb_text, cb_text.get_rect(center=colorblind_btn_rect.center))
+        if colorblind_mode:
+            screen.blit(filter_overlay, (0, 0))
 
         pygame.display.flip()
         clock.tick(FPS)
